@@ -5,9 +5,11 @@ require 'json'
 
 module RspecPuppetFacts
 
-  def on_supported_os( opts = {} )
+  def on_supported_os(metadata = nil, opts = {} )
     opts[:hardwaremodels] ||= ['x86_64']
-    opts[:supported_os] ||= RspecPuppetFacts.meta_supported_os
+
+    path = metadata[:absolute_file_path] || Dir.pwd
+    opts[:supported_os] ||= RspecPuppetFacts.meta_supported_os(path)
 
     filter = []
     opts[:supported_os].map do |os_sup|
@@ -54,13 +56,13 @@ module RspecPuppetFacts
   end
 
   # @api private
-  def self.meta_supported_os
-    @meta_supported_os ||= get_meta_supported_os
+  def self.meta_supported_os(path)
+    @meta_supported_os ||= get_meta_supported_os(path)
   end
 
   # @api private
-  def self.get_meta_supported_os
-    metadata = get_metadata
+  def self.get_meta_supported_os(path)
+    metadata = get_metadata(path)
     if metadata['operatingsystem_support'].nil?
       fail StandardError, "Unknown operatingsystem support"
     end
@@ -68,10 +70,17 @@ module RspecPuppetFacts
   end
 
   # @api private
-  def self.get_metadata
-    if ! File.file?('metadata.json')
-      fail StandardError, "Can't find metadata.json... dunno why"
+  def self.get_metadata(path)
+    dir = File.dirname(path)
+
+    while !dir.empty?
+      if File.exists?("#{dir}/metadata.json")
+        return JSON.parse(File.read("#{dir}/metadata.json"))
+      end
+
+      dir = dir.rpartition("/").first
     end
-    JSON.parse(File.read('metadata.json'))
+
+    fail StandardError, "Could not find metadata.json in #{Dir.pwd} or any of its parent directories"
   end
 end
